@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сканирование - Авиационная Безопасность</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <style>
+        .info-card {
+            margin-bottom: 20px;
+        }
+        .status-badge {
+            font-size: 0.8em;
+        }
+        .detail-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .security-high { color: #dc3545; font-weight: bold; }
+        .security-medium { color: #ffc107; font-weight: bold; }
+        .security-low { color: #28a745; font-weight: bold; }
+        .port-open { color: #dc3545; }
+        .port-closed { color: #28a745; }
+        .service-table {
+            font-size: 0.9em;
+        }
+        .performance-metric {
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Авиационная Безопасность</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Главная</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/aviation-security">Авиационная Безопасность</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/scan">Сканирование</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Выход</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="text-center">Расширенное сканирование сети</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="scanForm" class="mb-4">
+                            <div class="mb-3">
+                                <label for="network" class="form-label">Сеть для сканирования</label>
+                                <input type="text" class="form-control" id="network" name="network" 
+                                       placeholder="Например: 192.168.1.0/24" required>
+                                <div class="form-text">
+                                    Введите сеть в формате CIDR (например: 192.168.1.0/24). 
+                                    Сканирование включает анализ подсети, портов, сервисов, безопасности и производительности.
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-search"></i> Начать расширенное сканирование
+                                </button>
+                            </div>
+                        </form>
+
+                        <div id="scanStatus" class="alert alert-info d-none">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                <span>Выполняется расширенное сканирование сети...</span>
+                            </div>
+                            <div class="progress mt-2">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div id="scanResults" class="d-none">
+                            <h4 class="mb-4">Результаты расширенного сканирования</h4>
+                            
+                            <!-- Общая информация о подсети -->
+                            <div class="card info-card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">Информация о подсети</h5>
+                                </div>
+                                <div class="card-body" id="subnetInfo">
+                                </div>
+                            </div>
+
+                            <!-- Результаты по хостам -->
+                            <div id="hostResults">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('scanForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const network = document.getElementById('network').value;
+            const scanStatus = document.getElementById('scanStatus');
+            const scanResults = document.getElementById('scanResults');
+            const subnetInfo = document.getElementById('subnetInfo');
+            const hostResults = document.getElementById('hostResults');
+
+            try {
+                scanStatus.classList.remove('d-none');
+                scanResults.classList.add('d-none');
+                subnetInfo.innerHTML = '';
+                hostResults.innerHTML = '';
+
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ network })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка при запуске сканирования');
+                }
+
+                const data = await response.json();
+                const scanId = data.scan_id;
+
+                // Poll for results
+                const checkResults = async () => {
+                    const resultResponse = await fetch(`/scan/${scanId}`);
+                    if (!resultResponse.ok) {
+                        throw new Error('Ошибка при получении результатов');
+                    }
+
+                    const resultData = await resultResponse.json();
+                    if (resultData.status === 'completed') {
+                        scanStatus.classList.add('d-none');
+                        scanResults.classList.remove('d-none');
+                        
+                        // Display subnet information
+                        if (resultData.results && resultData.results.length > 0) {
+                            const firstResult = resultData.results[0];
+                            if (firstResult.subnet_info) {
+                                displaySubnetInfo(firstResult.subnet_info);
+                            }
+                        }
+                        
+                        // Display host results
+                        resultData.results.forEach(result => {
+                            displayHostResult(result);
+                        });
+                    } else if (resultData.status === 'failed') {
+                        scanStatus.classList.remove('alert-info');
+                        scanStatus.classList.add('alert-danger');
+                        scanStatus.textContent = `Ошибка сканирования: ${resultData.error || 'Неизвестная ошибка'}`;
+                        throw new Error(resultData.error || 'Сканирование завершилось с ошибкой');
+                    } else {
+                        // Continue polling
+                        setTimeout(checkResults, 3000);
+                    }
+                };
+
+                checkResults();
+            } catch (error) {
+                scanStatus.classList.remove('d-none');
+                scanStatus.classList.remove('alert-info');
+                scanStatus.classList.add('alert-danger');
+                scanStatus.textContent = error.message;
+            }
+        });
+
+        function displaySubnetInfo(subnetInfo) {
+            const subnetDiv = document.getElementById('subnetInfo');
+            subnetDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Адрес сети:</strong><br>
+                        <span class="text-primary">${subnetInfo.network_address}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Широковещательный адрес:</strong><br>
+                        <span class="text-primary">${subnetInfo.broadcast_address}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Маска подсети:</strong><br>
+                        <span class="text-primary">${subnetInfo.netmask}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Всего хостов:</strong><br>
+                        <span class="text-primary">${subnetInfo.total_hosts}</span>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <strong>Используемых хостов:</strong><br>
+                        <span class="text-success">${subnetInfo.active_hosts}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Утилизация:</strong><br>
+                        <span class="text-info">${subnetInfo.host_utilization}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Биты подсети:</strong><br>
+                        <span class="text-secondary">${subnetInfo.subnet_bits}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Биты хостов:</strong><br>
+                        <span class="text-secondary">${subnetInfo.host_bits}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayHostResult(result) {
+            const hostDiv = document.createElement('div');
+            hostDiv.className = 'card info-card';
+            hostDiv.innerHTML = `
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-server"></i> Хост: ${result.ip_address}
+                        <span class="badge bg-light text-dark ms-2">${result.scan_timestamp}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Системная информация -->
+                        <div class="col-md-6">
+                            <div class="detail-section">
+                                <h6><i class="fas fa-info-circle"></i> Системная информация</h6>
+                                <table class="table table-sm">
+                                    <tr><td>ОС:</td><td>${result.system_info?.os_name || 'Неизвестно'}</td></tr>
+                                    <tr><td>Точность ОС:</td><td>${result.system_info?.os_accuracy || '0'}%</td></tr>
+                                    <tr><td>Hostname:</td><td>${result.system_info?.hostname || 'Неизвестно'}</td></tr>
+                                    <tr><td>MAC адрес:</td><td>${result.system_info?.mac_address || 'Неизвестно'}</td></tr>
+                                    <tr><td>Производитель:</td><td>${result.system_info?.vendor || 'Неизвестно'}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- DNS информация -->
+                        <div class="col-md-6">
+                            <div class="detail-section">
+                                <h6><i class="fas fa-globe"></i> DNS информация</h6>
+                                <table class="table table-sm">
+                                    <tr><td>Hostname:</td><td>${result.dns_issues?.hostname || 'Неизвестно'}</td></tr>
+                                    <tr><td>Время отклика:</td><td>${result.dns_issues?.dns_info?.response_time || 'Неизвестно'}</td></tr>
+                                    <tr><td>Проблемы:</td><td>${result.dns_issues?.issues?.length || 0}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Порты и сервисы -->
+                    <div class="detail-section">
+                        <h6><i class="fas fa-network-wired"></i> Порты и сервисы</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>TCP порты (открыто: ${result.open_ports?.total_open_tcp || 0})</strong>
+                                <div class="table-responsive">
+                                    <table class="table table-sm service-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Порт</th>
+                                                <th>Сервис</th>
+                                                <th>Продукт</th>
+                                                <th>Версия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${(result.open_ports?.tcp_ports || []).map(port => `
+                                                <tr>
+                                                    <td class="port-open">${port.port}</td>
+                                                    <td>${port.service}</td>
+                                                    <td>${port.product}</td>
+                                                    <td>${port.version}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>UDP порты (открыто: ${result.open_ports?.total_open_udp || 0})</strong>
+                                <div class="table-responsive">
+                                    <table class="table table-sm service-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Порт</th>
+                                                <th>Сервис</th>
+                                                <th>Продукт</th>
+                                                <th>Версия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${(result.open_ports?.udp_ports || []).map(port => `
+                                                <tr>
+                                                    <td class="port-open">${port.port}</td>
+                                                    <td>${port.service}</td>
+                                                    <td>${port.product}</td>
+                                                    <td>${port.version}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Безопасность -->
+                    <div class="detail-section">
+                        <h6><i class="fas fa-shield-alt"></i> Безопасность</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Уровень риска: 
+                                    <span class="security-${result.security_issues?.risk_level || 'low'}">
+                                        ${result.security_issues?.risk_level || 'low'}
+                                    </span>
+                                </strong>
+                                <br>
+                                <strong>Проблем безопасности: ${result.security_issues?.total_issues || 0}</strong>
+                                <ul class="list-unstyled mt-2">
+                                    ${(result.security_issues?.issues || []).map(issue => 
+                                        `<li class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${issue}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Заголовки безопасности:</strong>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        ${result.security_issues?.security_info?.security_headers ? 
+                                            Object.entries(result.security_issues.security_info.security_headers).map(([header, value]) => `
+                                                <tr>
+                                                    <td>${header}:</td>
+                                                    <td class="${value === 'Not set' ? 'text-danger' : 'text-success'}">${value}</td>
+                                                </tr>
+                                            `).join('') : '<tr><td colspan="2">Недоступно</td></tr>'
+                                        }
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Сетевая конфигурация -->
+                    <div class="detail-section">
+                        <h6><i class="fas fa-cogs"></i> Сетевая конфигурация</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>MTU:</strong> ${result.network_config?.mtu_message || 'Неизвестно'}<br>
+                                <strong>Количество хопов:</strong> ${result.network_config?.hop_count || 0}<br>
+                                <strong>Время отклика (среднее):</strong> ${result.network_config?.ping_avg || 'Неизвестно'}<br>
+                                <strong>Джиттер:</strong> ${result.network_config?.ping_mdev || 'Неизвестно'}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Traceroute:</strong>
+                                <pre class="bg-dark text-light p-2" style="font-size: 0.8em; max-height: 100px; overflow-y: auto;">
+${result.network_config?.traceroute || 'Недоступно'}
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Производительность -->
+                    <div class="detail-section">
+                        <h6><i class="fas fa-tachometer-alt"></i> Производительность</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="performance-metric">
+                                    <strong>Время загрузки веб-страницы:</strong> ${result.performance_data?.web_load_time || 'Недоступно'}
+                                </div>
+                                <div class="performance-metric">
+                                    <strong>Задержка (средняя):</strong> ${result.performance_data?.latency_avg || 'Недоступно'}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="performance-metric">
+                                    <strong>Задержка (мин/макс):</strong> ${result.performance_data?.latency_min || 'N/A'} / ${result.performance_data?.latency_max || 'N/A'}
+                                </div>
+                                <div class="performance-metric">
+                                    <strong>Джиттер сети:</strong> ${result.performance_data?.latency_jitter || 'Недоступно'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('hostResults').appendChild(hostDiv);
+        }
+    </script>
+</body>
+</html> 

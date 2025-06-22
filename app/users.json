@@ -1,0 +1,11 @@
+{
+    "admin": {
+        "password": "admin123",
+        "role": "admin"
+    },
+    "user": {
+        "password": "user123",
+        "role": "user"
+    },
+    "\u0412\u043b\u0430\u0434": "1234567890"
+}
