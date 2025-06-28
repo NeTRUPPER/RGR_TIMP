@@ -250,32 +250,19 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <!-- Системная информация -->
-                        <div class="col-md-6">
-                            <div class="detail-section">
-                                <h6><i class="fas fa-info-circle"></i> Системная информация</h6>
-                                <table class="table table-sm">
-                                    <tr><td>ОС:</td><td>${result.system_info?.os_name || 'Неизвестно'}</td></tr>
-                                    <tr><td>Точность ОС:</td><td>${result.system_info?.os_accuracy || '0'}%</td></tr>
-                                    <tr><td>Hostname:</td><td>${result.system_info?.hostname || 'Неизвестно'}</td></tr>
-                                    <tr><td>MAC адрес:</td><td>${result.system_info?.mac_address || 'Неизвестно'}</td></tr>
-                                    <tr><td>Производитель:</td><td>${result.system_info?.vendor || 'Неизвестно'}</td></tr>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- DNS информация -->
-                        <div class="col-md-6">
-                            <div class="detail-section">
-                                <h6><i class="fas fa-globe"></i> DNS информация</h6>
-                                <table class="table table-sm">
-                                    <tr><td>Hostname:</td><td>${result.dns_issues?.hostname || 'Неизвестно'}</td></tr>
-                                    <tr><td>Время отклика:</td><td>${result.dns_issues?.dns_info?.response_time || 'Неизвестно'}</td></tr>
-                                    <tr><td>Проблемы:</td><td>${result.dns_issues?.issues?.length || 0}</td></tr>
-                                </table>
-                            </div>
-                        </div>
+                    <!-- DNS информация -->
+                    <div class="detail-section">
+                        <h6><i class="fas fa-globe"></i> DNS информация</h6>
+                        <table class="table table-sm">
+                            <tr><td>Hostname:</td><td>${result.dns_issues?.hostname || 'Неизвестно'}</td></tr>
+                            <tr><td>Время отклика:</td><td>${result.dns_issues?.dns_info?.response_time || 'Неизвестно'}</td></tr>
+                            <tr><td>A-записи:</td><td>${(result.dns_issues?.dns_info?.a_records || []).join('<br>') || 'Нет'}</td></tr>
+                            <tr><td>PTR-записи:</td><td>${(result.dns_issues?.dns_info?.ptr_records || []).join('<br>') || 'Нет'}</td></tr>
+                            <tr><td>MX-записи:</td><td>${(result.dns_issues?.dns_info?.mx_records || []).join('<br>') || 'Нет'}</td></tr>
+                            <tr><td>NS-записи:</td><td>${(result.dns_issues?.dns_info?.ns_records || []).join('<br>') || 'Нет'}</td></tr>
+                            <tr><td>TXT-записи:</td><td>${(result.dns_issues?.dns_info?.txt_records || []).join('<br>') || 'Нет'}</td></tr>
+                            <tr><td>Проблемы:</td><td>${(result.dns_issues?.issues || []).length > 0 ? result.dns_issues.issues.join('<br>') : 'Нет'}</td></tr>
+                        </table>
                     </div>
 
                     <!-- Порты и сервисы -->
@@ -367,25 +354,6 @@
                                         }
                                     </table>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Сетевая конфигурация -->
-                    <div class="detail-section">
-                        <h6><i class="fas fa-cogs"></i> Сетевая конфигурация</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>MTU:</strong> ${result.network_config?.mtu_message || 'Неизвестно'}<br>
-                                <strong>Количество хопов:</strong> ${result.network_config?.hop_count || 0}<br>
-                                <strong>Время отклика (среднее):</strong> ${result.network_config?.ping_avg || 'Неизвестно'}<br>
-                                <strong>Джиттер:</strong> ${result.network_config?.ping_mdev || 'Неизвестно'}
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Traceroute:</strong>
-                                <pre class="bg-dark text-light p-2" style="font-size: 0.8em; max-height: 100px; overflow-y: auto;">
-${result.network_config?.traceroute || 'Недоступно'}
-                                </pre>
                             </div>
                         </div>
                     </div>
